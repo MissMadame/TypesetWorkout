@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="zh">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Locker Art - p5.js</title>
+
+  <!-- 引入 p5.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+
+  <script src="./sket.js"></script>
+
+  <style>
+    body {
+      background-color: #000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin: 0;
+      padding: 0;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      /* cursor: none; */
+      /* 原来 Vue 每个格子里 cursor:none，这里全局隐藏 */
+    }
+
+    .content {
+      position: relative;
+      width: 1210px;
+      height: 782px;
+      background-color: #000;
+      overflow: hidden;
+    }
+
+    /* p5 的画布容器 */
+    #p5-holder {
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+
+    .ffg {
+      position: absolute;
+      left: 80px;
+      bottom: 20px;
+      width: 94px;
+      z-index: 1000;
+    }
+
+    .smpop {
+      position: absolute;
+      left: 30px;
+      bottom: 220px;
+      width: 30px;
+      height: 15px;
+      border-radius: 60%;
+      border: 1px solid #fff;
+      opacity: 0;
+    }
+
+    .mdpop {
+      position: absolute;
+      left: 10px;
+      bottom: 270px;
+      opacity: 0;
+      width: 60px;
+      height: 25px;
+      border-radius: 60%;
+      border: 1px solid #fff;
+    }
+
+    .lgpop {
+      position: absolute;
+      opacity: 0;
+      left: 0px;
+      bottom: 300px;
+      width: 240px;
+      height: 150px;
+      border-radius: 60%;
+      background-color: #000;
+      border: 1px solid #fff;
+      color: #fff;
+      font-size: 12px;
+      text-align: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: Helvetica, Arial, sans-serif;
+      font-weight: bold;
+      z-index: 999;
+    }
+
+    /* 用 JS 控制是否显示，而不是 :hover 兄弟选择器 */
+    .pop-visible {
+      opacity: 1 !important;
+    }
+
+  </style>
+</head>
+
+<body>
+  <div class="content">
+    <!-- p5 画布会挂在这里 -->
+    <div id="p5-holder"></div>
+
+    <!-- 杯子和文字气泡，显示/隐藏交给 JS 控制 -->
+    <div class="ffg" id="cup">
+      <img style="width:100%" src="./imgs/cup.png" alt="">
+    </div>
+    <div class="smpop" id="smpop"></div>
+    <div class="mdpop" id="mdpop"></div>
+    <div class="lgpop" id="lgpop">
+      WELCOME TO TYPESET WORKOUT.<br>TYPOGRAPHY,TRAINED LIKE A BODY.
+    </div>
+  </div>
+
+  <script>
+    let points = [
+      [147, 50.4, 912, 0],
+      [264.6, 167.3, 875.7, 0],
+      [264.6, 361.9, 875.7, 0],
+      [264.6, 557.9, 875.7, 0],
+      [264.6, 753.2, 875.7, 0],
+      // 竖线
+      [147, 50.4, 0, 588],
+      [264.6, 167.3, 0, 586],
+      [555.8, 167.3, 0, 586],
+      [848.4, 167.3, 0, 586],
+      [1140, 167.3, 0, 586],
+    ];
+    let currentZoom = 1
+    let posx = 0;
+    let posy = 0
+    let zpoints = [
+      [147, 50.4, 264.6, 167.3],
+      [438.9, 50.4, 555.8, 167.3],
+      [730.8, 50.4, 848.4, 167.3],
+      [1058.8, 50.4, 1140, 167.3],
+      [147, 246.4, 264.6, 361.9],
+      [147, 442.4, 264.6, 557.9],
+      [147, 638.4, 264.6, 753.9],
+    ];
+    let clickCount = [0, 0, 0, 0, 0, 0, 0, 0, 0]
+    let img;
+    let bmv = false;
+    let cellW, cellH;
+    let left, ztop;
+    // 资源
+    let imgs = []; // 9 张小图
+    let videos = []; // 9 个视频 (p5.MediaElement)
+    let fontInter;
+    let kpos = [
+      [335, 213],
+      [737, 213],
+      [1149, 213],
+      [335, 487],
+      [737, 487],
+      [1149, 487],
+      [335, 761],
+      [737, 761],
+      [1149, 761],
+    ]
+    let kindex = -1
+    let inter600;
+
+    function preload() {
+      // 如果想自定义字体（与 CSS Inter 一致），可以在这里 loadFont
+      // 这里只在 canvas 内使用系统 sans-serif
+      for (let i = 0; i < 9; i++) {
+        imgs[i] = loadImage(`./imgs/${i + 1}.png`);
+        // 视频：loop + 隐藏 DOM
+        videos[i] = createVideo(`./videos/${i + 1}.mp4`);
+        videos[i].attribute('playsinline', '');
+        videos[i].elt.muted = true;
+        videos[i].loop();
+        videos[i].hide();
+      }
+      inter600 = loadFont('./1.ttf');
+    }
+
+    function setup() {
+      // 逻辑大小与原 canvas 一致：1728x1117
+      // 放到指定容器中
+      let cnv = createCanvas(1200, 800);
+      cnv.parent('p5-holder');
+      // 初始黑背景
+      background(0);
+      // 定义大矩形的两个对角点
+      let x1 = 265,
+        y1 = 167;
+      let x2 = 1140,
+        y2 = 753;
+      // 确保 x1 < x2, y1 < y2（如果不是，可以交换）
+      left = min(x1, x2);
+      ztop = min(y1, y2);
+      let right = max(x1, x2);
+      let bottom = max(y1, y2);
+      let zwidth = right - left;
+      let zheight = bottom - ztop;
+      // 每个小格子的宽高
+      cellW = zwidth / 3;
+      cellH = zheight / 3;
+    }
+
+    function draw() {
+      background(0);
+      // translate(mouseX, mouseY);
+      // scale(3.5)
+      // translate(-mouseX, -mouseY);
+      if (bmv) {
+        translate(kpos[kindex][0], kpos[kindex][1]);
+        scale(currentZoom)
+        translate(-kpos[kindex][0], -kpos[kindex][1]);
+        if (currentZoom < 3.5) currentZoom += 0.04
+      }
+      // 再进行整体缩放和平移
+      push();
+      // 绘制 3x3 网格
+      stroke(255);
+      noFill();
+      let pin = 0
+      for (let j = 0; j < 3; j++) {
+        for (let i = 0; i < 3; i++) {
+          let x = left + i * cellW;
+          let y = ztop + j * cellH;
+          if (clickCount[pin] == 1) {
+            push()
+            imageMode(CORNER)
+            image(videos[pin], x, y, cellW, cellH, 0, 0, 835, 835 / (cellW / cellH))
+            pop()
+          }
+          if (clickCount[pin] == 2) {
+            push()
+            imageMode(CORNER)
+            // image(videos[pin], x, y, cellW, cellH, )
+            image(videos[pin], x, y, cellH * 1.2, cellH)
+            pop()
+          }
+          pin += 1
+        }
+      }
+      pop();
+      push();
+      stroke(255);
+      strokeWeight(1 / currentZoom); // 视觉线宽约为 1px
+      noFill();
+      drawLines(points);
+      drawLinesz(zpoints);
+      pop();
+      let pinz = 0
+      for (let j = 0; j < 3; j++) {
+        for (let i = 0; i < 3; i++) {
+          let x = left + i * cellW;
+          let y = ztop + j * cellH;
+          // rect(x, y, cellW, cellH);
+          if (clickCount[pinz] == 0 && currentZoom == 1) {
+            push();
+            noStroke();
+            fill(255);
+            ellipse(x + cellW - 30, y + 70, 35, 35); // bicon
+            // 小圆（sicon）
+            fill(0);
+            if (mouseX > x && mouseX < x + cellW && mouseY > y && mouseY < y + cellH) {
+              fill(color(0, 255, 0));
+              push()
+              imageMode(CENTER)
+              translate(mouseX, mouseY)
+              rotate(PI / 4)
+              image(imgs[pinz], 0, 0, 183 / 4, 375 / 4); // 图片跟随鼠标
+              pop()
+            } else {
+              fill(0)
+            }
+            ellipse(x + cellW - 30, y + 60, 8, 8);
+            pop();
+            // 三角形
+            push();
+            translate(x + cellW - 110, y + cellH - 110); // 在大圆下方
+            fill(255);
+            noStroke();
+            triangle(110, 110, 110, 72, 72, 110);
+            fill(0)
+            textSize(16)
+            textFont(inter600);
+            text('0' + (pinz + 1), 88, 105)
+            pop();
+          }
+          pinz += 1
+        }
+      }
+      // 控制杯子和提示气泡的显示（DOM 元素）
+      updateCupAndPop();
+    }
+    // ===================== 绘制函数 =====================
+    function drawLines(pts) {
+      for (let p of pts) {
+        let [x, y, dx, dy] = p;
+        line(x, y, x + dx, y + dy);
+      }
+    }
+
+    function drawLinesz(pts) {
+      for (let p of pts) {
+        let [x1, y1, x2, y2] = p;
+        line(x1, y1, x2, y2);
+      }
+    }
+    // ===================== 交互：点击 =====================
+    function mouseClicked() {
+      console.log(mouseX, mouseY)
+      // 使用变换后的鼠标坐标进行点击检测
+      let actualMouseX, actualMouseY;
+      // 如果正在缩放，我们需要将当前的鼠标坐标转换回原始坐标系
+      if (bmv && kindex !== -1) {
+        // 当前的鼠标坐标是在缩放后的坐标系中
+        // 我们需要将其转换回原始坐标系
+        let dx = mouseX - kpos[kindex][0];
+        let dy = mouseY - kpos[kindex][1];
+        actualMouseX = dx / currentZoom + kpos[kindex][0];
+        actualMouseY = dy / currentZoom + kpos[kindex][1];
+      } else {
+        actualMouseX = mouseX;
+        actualMouseY = mouseY;
+      }
+      if (actualMouseX > left && actualMouseX < left + 3 * cellW &&
+        actualMouseY > ztop && actualMouseY < ztop + 3 * cellH) {
+        let col = floor((actualMouseX - left) / cellW);
+        let row = floor((actualMouseY - ztop) / cellH);
+        if (col >= 0 && col < 3 && row >= 0 && row < 3) { // 验证鼠标在网格范围内
+          // 根据行列索引计算图片数组中的索引
+          let index = row * 3 + col;
+          console.log(index)
+          kindex = index
+          if (clickCount[index] == 0) {
+            for (let i = 0; i < 9; i++) {
+              clickCount[i] = 0
+            }
+            clickCount[index] = 1
+          } else if (clickCount[index] == 1) {
+            clickCount[index] = 2
+            bmv = true
+          } else {
+            bmv = false;
+            currentZoom = 1
+            clickCount[index] = 0
+          }
+        }
+      }
+    }
+    // ===================== DOM: 杯子 & 气泡 =====================
+    function updateCupAndPop() {
+      const cup = document.getElementById('cup');
+      const sm = document.getElementById('smpop');
+      const md = document.getElementById('mdpop');
+      const lg = document.getElementById('lgpop');
+      if (!cup || !sm || !md || !lg) return;
+      // 只有 currentZoom == 0.7 时显示杯子和气泡
+      if (currentZoom == 1) {
+        cup.style.display = 'block';
+        const inCup =
+          mouseX >= 78 &&
+          mouseX <= 161 &&
+          mouseY >= 568 &&
+          mouseY <= 749;
+        if (inCup) {
+          sm.classList.add('pop-visible');
+          md.classList.add('pop-visible');
+          lg.classList.add('pop-visible');
+        } else {
+          sm.classList.remove('pop-visible');
+          md.classList.remove('pop-visible');
+          lg.classList.remove('pop-visible');
+        }
+      } else {
+        cup.style.display = 'none';
+        sm.classList.remove('pop-visible');
+        md.classList.remove('pop-visible');
+        lg.classList.remove('pop-visible');
+      }
+    }
+
+  </script>
+</body>
+
+</html>
