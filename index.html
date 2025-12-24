@@ -227,15 +227,22 @@
           let y = ztop + j * cellH;
           if (clickCount[pin] == 1) {
             push()
-            imageMode(CORNER)
-            image(videos[pin], x, y, cellW, cellH, 0, 0, 835, 835 / (cellW / cellH))
+            imageMode(CENTER)
+            image(videos[pin], x + cellW / 2, y + cellH / 2, 2000 / 9, 1670 / 9, 0, 0, 835, 695)
+            rectMode(CENTER)
+            stroke(255)
+            strokeWeight(1 / currentZoom);
+            rect(x + cellW / 2, y + cellH / 2, 2000 / 9, 1670 / 9)
             pop()
           }
           if (clickCount[pin] == 2) {
             push()
-            imageMode(CORNER)
-            // image(videos[pin], x, y, cellW, cellH, )
-            image(videos[pin], x, y, cellH * 1.2, cellH)
+            imageMode(CENTER)
+            image(videos[pin], x + cellW / 2, y + cellH / 2, 2000 / 9, 1670 / 9)
+            rectMode(CENTER)
+            stroke(255)
+            strokeWeight(1 / currentZoom);
+            rect(x + cellW / 2, y + cellH / 2, 2000 / 9, 1670 / 9)
             pop()
           }
           pin += 1
@@ -264,6 +271,7 @@
             fill(0);
             if (mouseX > x && mouseX < x + cellW && mouseY > y && mouseY < y + cellH) {
               fill(color(0, 255, 0));
+              ellipse(x + cellW - 30, y + 60, 8, 8);
               push()
               imageMode(CENTER)
               translate(mouseX, mouseY)
@@ -272,8 +280,8 @@
               pop()
             } else {
               fill(0)
+              ellipse(x + cellW - 30, y + 60, 8, 8);
             }
-            ellipse(x + cellW - 30, y + 60, 8, 8);
             pop();
             // 三角形
             push();
@@ -286,6 +294,21 @@
             textFont(inter600);
             text('0' + (pinz + 1), 88, 105)
             pop();
+          }
+          if (clickCount[pinz] == 1) {
+            push()
+            fill(0)
+            stroke(255)
+            strokeWeight(1 / currentZoom);
+            beginShape();
+            // 定义平行四边形的四个顶点坐标
+            vertex(x - 50, y + 70); // 第一个顶点
+            vertex(x, y); // 第二个顶点
+            vertex(x, y + cellH); // 第三个顶点
+            vertex(x - 50, y + cellH + 70); // 第四个顶点
+            // 结束定义并绘制形状
+            endShape(CLOSE); // 使用CLOSE参数将最后一个顶点与第一个顶点连接起来形成闭合形状
+            pop()
           }
           pinz += 1
         }
